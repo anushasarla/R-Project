@@ -26,13 +26,13 @@ Split multi-genre entries in the IMDb data into individual rows for more detaile
 Grouped and aggregated data to calculate average ratings for genres and content types.
 Analyzed student performance using categorical and numerical variables, exploring correlations.
 
-**Technologies Used**
+**Technologies Used**:
 
 Programming Language: R
 
 Libraries: readxl, dplyr, tidyr, ggplot2, tidyverse
 
-**How to Use**
+**How to Use**:
 
 1) Clone the repository and download the datasets (cleanDataTVFlat.csv and student-mat.csv).
 2) Run the provided R Markdown or script files to replicate the analysis.
