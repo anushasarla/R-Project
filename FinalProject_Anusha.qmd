@@ -1,0 +1,428 @@
+---
+title: "Final Project - R"
+author: "Anusha Anand Sarla - 24219473"
+format: pdf
+editor: visual
+---
+
+## Part 1: Analysis
+
+**Introduction**:
+
+I have used 'cleanDataTVFlat.csv' file and loaded it in a 'Netflix_data' data set. Netflix_data contains Netflix and IMDB engagement match TV details.
+
+### Data Cleaning:
+
+Loaded necessary libraries such as 'readxl', 'dplyr', 'tidyr', 'ggplot2' to run the code.
+
+```{r, warning=FALSE, message=FALSE}
+# Loading required libraries
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Loading the dataset
+Netflix_data <- read.csv('cleanDataTVFlat.csv')
+```
+
+```{r, warning=FALSE, message=FALSE}
+# Printing the dimension of the dataset
+dim(Netflix_data)
+
+# Printing the structure of the dataset
+str(Netflix_data)
+
+# Remove all columns from 'composerCount' onwards
+start_column <- which(names(Netflix_data) == "composerCount")
+Netflix_data <- Netflix_data[, 1:(start_column - 1)]
+
+# Checking the number of columns after removing the columns from
+#'composerCount' onwrads.
+dim(Netflix_data)
+
+# Checking for any NA values, removed them by na.omit() function and then
+#printed the dimension again to check the size after cleaning the data set.
+anyNA(Netflix_data)
+# Removing the NA values containing rows or columns
+Netflix_data <- Netflix_data %>% na.omit()
+# Printing the number of rowss and columns of the data set after removing
+#the NA values.
+print("Number of rows and columns of dataset after removing the NA values: ")
+dim(Netflix_data)
+
+# Converting the relevant columns to factors
+Netflix_data$imdbType <- as.factor(Netflix_data$imdbType)
+Netflix_data$imdbGenres <- as.factor(Netflix_data$imdbGenres)
+
+
+
+Netflix_data <- Netflix_data %>% mutate(
+  totalHoursWatched = as.numeric(totalHoursWatched),
+  imdbMatchConfidence = as.numeric(imdbMatchConfidence),
+  imdbUserRating = as.numeric(imdbUserRating),
+  directorCount = as.numeric(directorCount),
+  writerCount = as.numeric(writerCount),
+  castCount = as.numeric(castCount),
+  producerCount = as.numeric(producerCount)
+)
+
+Netflix_data <- Netflix_data %>% 
+  mutate(
+    imdbUserRating=ifelse(is.na(imdbUserRating),0,imdbUserRating)
+  )
+
+anyNA(Netflix_data)
+```
+
+-   In data cleaning, I have first printed the number of rows and columns of **Netflix_data** data set using dim() function.
+
+-   Then used the str() function to print the variable types in the data set.
+
+-   Removed the unwanted columns containing large number of NA values from the 'composerCount' column until last column.
+
+-   Printed the dimensions of the data set after removing these unwanted columns. Checked if the data set contained anymore NA values. AFter checking, removed them and printed the dimensions after removing the NA values.
+
+-   Converted the columns **imdbType** and **imdbGenres** to factors using as.factor() function.
+
+-   Converted relevant int type variables to numeric variables using **as.numeric()** function.
+
+-   In the **imdbUserRating** column there were still NA values after the type conversion, so replaced them with 0 using ifelse() function in the mutate() function.
+
+### Data Manipulation:
+
+```{r}
+
+data1 <- Netflix_data %>%
+  # Split genres into a list
+  mutate(imdbGenresList = strsplit(as.character(imdbGenres), ",")) %>%
+  # Expand each genre into its own row
+  unnest(imdbGenresList) %>%
+   # Trim whitespace from genre names
+  mutate(imdbGenresList = trimws(imdbGenresList))
+anyNA(data1)
+# Group by individual genres and calculate the average IMDb rating
+average_rating_by_genre <- data1 %>%
+  group_by(imdbGenresList) %>%
+  summarize(AverageRating = mean(imdbUserRating)) %>%
+  arrange(desc(AverageRating)) 
+
+print(average_rating_by_genre,n=Inf)
+
+# Group by Type and calculate average rating and total hours watched
+average_rating_by_type <- Netflix_data %>%
+  group_by(imdbType) %>%
+  summarize(AverageRating = mean(imdbUserRating)) %>%
+  arrange(desc(AverageRating)) # Sort by highest average rating
+
+print(average_rating_by_type)
+
+
+```
+
+-   Firstly, **data1** data set is created to do all the manipulations in the original data set and store in this data set.
+
+-   In the data manipulation part, the imdbGenres column which contains the genres such as Comedy, Drama, etc is split into individual genres using the strsplit() function and stored in a list **imdbGenresList.**
+
+-   A function unnest() is used to expand each genre into its own row, normalizing the data set. Then trimws() function is used to remove extra spaces from the genre names for consistency.
+
+-   The average rating of each genre is calculated using mean() function. These results are stored in a descending order using desc() function by the average rating and stored in AverageRating variable.
+
+-   Similarly, to calculate the average rating by imdbType, the data is grouped by categories such as TV Series, TV Movie, etc. The mean of the user rating is calculated and stored in the variable AverageRating. This data is then arranged in a descending order.
+
+-   These two tables containing the Average rating by Genres and Average Rating by imdbType are been printed using the print() function.
+
+## Data Visualization:
+
+```{r}
+library(ggplot2)
+# Create a new column for rating categories
+average_rating_by_genre <- average_rating_by_genre %>%
+  mutate(RatingCategory = case_when(
+    AverageRating < 6.8 ~ "Low",
+    AverageRating >= 6.8 & AverageRating < 7.2 ~ "Medium",
+    AverageRating >= 7.2 ~ "High"
+  ))
+
+# Plot with colors based on RatingCategory
+ggplot(average_rating_by_genre, aes(x = AverageRating, y = 
+  reorder(imdbGenresList, AverageRating), color = RatingCategory)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("Low" = "red", "Medium" = "orange", 
+                                "High" = "green")) +
+  labs(title = "Average IMDb Rating by Genre",
+       x = "Average IMDb Rating",
+       y = "Genre",
+       color = "Rating Category") +
+  theme_minimal()
+
+ggplot(Netflix_data, aes(x = imdbType, y = imdbUserRating, fill = imdbType)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(title = "Distribution of IMDb Ratings by Type",
+       x = "Type",
+       y = "IMDb Rating") +
+  theme_minimal() +
+  # Hides the legend since it duplicates the x-axis labels
+  theme(legend.position = "none") 
+
+
+```
+
+-   The above 2 plots visualises the IMDB ratings data, focusing on genres and content types such as movies, TV shows, etc.
+
+-   In the first plot, average IMDB rating by genre is displayed using a scatterplot. The processed data is been classified into 3 categories based on their ratings as shown below:
+
+    -   Low: Ratings below 6.8
+
+    -   Medium: Ratings between 6.8 and 7.2
+
+    -   High: ratings above 7.2
+
+-   The average IMDB rating is plotted in the X-axis and genres in the Y-axis based on their rating categories (low, medium, high).
+
+-   Each point in the plot represents the genres distinguished by its color (red, orange, green) for its low, medium and high rating.
+
+-   Plot shows average IMDb ratings by genre as follows:
+
+    -   **High ratings (green)**: Genres like *History* and *Western* (\>7.2).
+
+    -   **Low ratings (red)**: Genres like *Family* and *Reality-TV* (\~6.3–6.6).
+
+    -   **Medium ratings (orange)**: Most genres, including *Drama* and *Comedy* (6.7–7.1).
+
+    Overall, high-rated genres are few, while most genres fall into the medium category.
+
+-   The 2nd plot is a box plot which displays the comparison of the IMDB ratings for different types of content like movies, TV shows, etc.
+
+-   The x-axis represents the type of content and y-axis shows the IMDB user ratings.
+
+-   Each box in th box plot represents the distribution for that type where the middle line is the median rating. The box represents the range where maximum of the ratings fall under.
+
+-   The whiskers shows the complete spread of the ratings excluding the outliers.
+
+-   The box plot can be interpreted as follows:
+
+    -   **TV Mini Series**, **TV Series**, and **TV Special** tend to have higher IMDb ratings, with medians around 7.5.
+
+    -   **TV Short** has the lowest median rating, close to 6.5, and a narrow range.
+
+    -   **TV Movie** shows more variability with a wider range and lower ratings compared to other categories.
+
+    -   **TV Series** has the most outliers at the lower end of ratings, indicating some very poorly rated shows.
+
+    Overall, **TV Mini Series** and **TV Series** have consistently strong ratings, while **TV Short** and **TV Movie** show slightly lower quality on average.
+
+## Part 2:
+
+-   For part 2, I have used **data.table** package. Using this package we can create a data.table object of our entire data set, it is a data structure in R which is best for fast data manipulation and filtering.
+
+-   Here I have used 3 most important function from data.table package are:
+
+    -   **setDT()**: Converts a data frame to a data.table for faster and efficient data manipulation
+
+    -   **setkey()**: Sets a column(s) as the key for a data.table, for quick lookups and ordered operations.
+
+    -   **set()**: Directly modifies a data.table by adding or updating a new column or values in place avoiding data copying.
+
+```{r, message=FALSE, warning= FALSE}
+library(data.table)
+
+# Convert the dataset to a data.table
+setDT(Netflix_data)
+
+
+# Filter movies with IMDb rating above 7.2
+high_rated_movies_dt <- Netflix_data[imdbUserRating > 7.2]
+
+# View the filtered data
+print("High rated movies are: ")
+head(high_rated_movies_dt)
+
+setkey(Netflix_data, parentUUID)
+
+print("Printing the row corresponding to the below mentioned key: ")
+subset_DT <- Netflix_data["005a8e2d-7273-49a0-b97f-ed101e912d21"]
+subset_DT
+
+# Add a new column 'RatingCategory' based on IMDb rating
+set(Netflix_data, j = "RatingCategory", value = 
+      ifelse(Netflix_data$imdbUserRating < 6.8, "Low", 
+      ifelse(Netflix_data$imdbUserRating <= 7.2, "Medium",
+             "High")))
+
+# View the updated data
+head(Netflix_data)
+
+
+
+
+```
+
+-   After loading the data.table package, setDT() function converts the Netflix_data into data.table object.
+
+-   I have filtered the rows where imdbUserRating is higher than 7.2 rating and loaded them into a new **high_rated_movies_dt** data.table.
+
+-   Displayed the first 6 rows of **high_rated_movies_dt** using head() function for checking.
+
+-   The setkey() function is used to set the **parentUUID** column as the key for the **Netflix_data** data.table.
+
+-   Setting the keys enables the fast lookups and efficient subsetting based on the column which has been set as the key.
+
+-   Extracted the row from the Netflix_data data.table corresponding to the '005a8e2d-7273-49a0-b97f-ed101e912d21' key in parentUUID and saved in **subset_dt.**
+
+-   Now, added a new column **RatingCategory**, which contains the value based on the imdbUserRating categorised as: "Low" if the rating is less then 6.8, "Medium" if the rating is between 6.8 and 7.2 and "High" for the rating greater than 7.2
+
+-   Finally printed the first 6 rows using the head() function of the updated **Netflix_data**, including the new column **RatingCategory**.
+
+## Part 3:
+
+-   In part 3 of this project, I have created a customised linerar regression model using S3 objects and defined methods for printing, summarising and plotting the model.
+
+```{r}
+students_data <- read.csv('student-mat.csv')
+# Defined a function to fit a linear model and return an S3 object
+lm_model <- function(formula, data) {
+  # Fitted the linear model using lm()
+  model <- lm(formula, data)
+  
+  # Created an S3 object to store the model and the formula
+  result <- list(
+    call = formula,    # The formula used for fitting the model
+    coefficients = coef(model),  # Coefficients from the model
+    residuals = residuals(model),  # Residuals
+    fitted_values = fitted(model), # Fitted values
+    data = data         # Original data used
+  )
+  
+  # Assigned the class 'lm_model' to the object
+  class(result) <- "lm_model"
+  
+  return(result)
+}
+
+# Defined the print() method for the 'lm_model' class
+print.lm_model <- function(model, ...) {
+  cat("Linear Model Fitted Using Formula:\n", deparse(model$call), "\n")
+  
+  cat("\nCoefficients:\n")
+  print(model$coefficients)
+}
+
+# Defined the summary() method for the 'lm_model' class
+summary.lm_model <- function(M, ...) {
+  cat("Linear Model Summary\n")
+  cat("Formula: ", deparse(M$call), "\n")
+  cat("\nCoefficients:\n")
+  
+  # Printed coefficients with some additional information
+  print(M$coefficients)
+  
+  # Calculated and print R-squared
+  fitted_values <- model$fitted_values
+  residuals <- model$residuals
+  SST <- sum((model$data[[as.character(model$call[[2]])]] - 
+                   mean(model$data[[as.character(model$call[[2]])]]))^2)
+  SSR <- sum(residuals^2)
+  r_squared <- 1 - (SSR / SST)
+  
+  cat("\nR-squared: ", r_squared, "\n")
+}
+
+# Defined the plot() method for the 'lm_model' class
+plot.lm_model <- function(model) {
+  par(mfrow = c(1, 2))  # Set up a 1x2 plot grid
+  
+  # Plotted the residuals vs. fitted values
+  plot(model$fitted_values, model$residuals, 
+       main="Residuals vs Fitted Values", 
+       xlab="Fitted Values", ylab="Residuals", pch=19, col = "blue",
+       cex = 0.5)
+  abline(h = 0, col = "red")
+  
+  # QQ plot for the residuals
+  qqnorm(model$residuals, main="QQ Plot of Residuals", 
+         col = "darkgreen", cex = 0.5)
+  qqline(model$residuals, col = "red")
+  
+  par(mfrow = c(1, 1))  # Reset the plot layout
+}
+
+
+# Fitted the linear model using the custom lm_model function
+model <- lm_model(G3 ~ age + failures + freetime + studytime +
+                    internet + G1 + G2, data = students_data)
+
+# Used the print(), summary(), and plot() methods
+print(model)          # Prints basic model info
+summary(model)        # Prints model summary
+plot(model)           # Plots residuals vs fitted values
+
+
+
+```
+
+-   Fitted a linear regression model and stored key components (formula, data) in a custom S3 object **lm_model** class.
+
+-   For formula argument, it specifies the formula of our regression model including the covariates specified for this model. The data argument represents the data set used for the model.
+
+-   Created a 'result' object to output the results containing a list of 'call' which contains the formula used to fit the model, 'coefficients' which are the estimated coefficients from the regression, 'residuals' that shows the differences between actual and predicted values. 'fitted_values' shows the fitted values based on the model and 'data' represents the original data set.
+
+-   In the **print.lm_model method**, I have customised the print behaviour for objects of the class lm_model.
+
+-   In this function, the formula and the estimated coefficients are printed.
+
+-   In the summary method **summary.lm_model**, customised summary for the linear model has been created and only the used formula, coefficients and R-square are printed.
+
+-   **Coefficients and Their Interpretation (One-Liners)**
+
+    1.  **Intercept (0.4970.497)**: Baseline prediction for G3 when all predictors are zero.
+
+    2.  **Age (−0.117-0.117)**: Older students tend to score slightly lower in G3.
+
+    3.  **Failures (−0.227-0.227)**: Each additional past failure reduces G3 significantly.
+
+    4.  **Free time (0.0950.095)**: More free time slightly increases G3.
+
+    5.  **Study time (−0.172-0.172)**: Increased study time is associated with lower G3, potentially indicating inefficiency.
+
+    6.  **Internet access (−0.122-0.122)**: Having internet access slightly reduces G3, possibly due to distractions.
+
+    7.  **First-period grade G1 (0.1560.156)**: Better first-period grades moderately improve G3.
+
+    8.  **Second-period grade G2 (0.9700.970)**: The strongest predictor, with higher G2 leading to a significant increase in G3.
+
+-   The total variance in the dependent variable (SST), residual variance unexplained by model (SSR) are been calculated to compute R-squared using the formula **r_squared = 1 - (SSR / SST)**.
+
+-   R-squared value came out to be 0.826.
+
+-   The model explains **82.6%** of the variance in G3, indicating a strong fit.
+
+-   In the plot method **plot.lm_model**, diagnostic plots for the model has been created for visualisation.
+
+-   Two side-by-side plots are created for Residuals vs. Fitted Values and QQ Plot using par() function.
+
+-   Residuals vs. Fitted Values plot checks for randomness. Here we can see a funnel structure in the model which show the increase in the variance with the increase in the fitted values. This shows the heteroscedasticity of the model.
+
+-   QQ plot evaluates whether the residuals follows a normal distribution. Plots lying along the line indicates normality. Whereas in our plot we see the left tail moving away from the theoretical line showing that the model does not follows a normal distribution.
+
+-   A linear regression **model** for G3 (final grade) using predictors age, failures, freetime, studytime, internet, G1 (first period grade) and G2 (second period grade) is created.
+
+-   This linear model is stored in a custom **lm_model** object.
+
+-   Finally, used the **print(model)** to display the formula and coefficients, **summary(model)** to show a detailed summary including R-squared and **plot(model)** to produce diagnostics plot for the residuals.
+
+-   From the output, we can conclude that the R-squared value is **0.826** which shows a strong fit but the residuals plot indicates heteroscedasticity and does not follows normal distribution which is insignificant for the model.
+
+## References:
+
+1.  **Netflix Imdb Engagement Match TV** data set (cleanDataTVFlat.csv): mattrichmo (Matt) *Netflix IMDb Engagement Match TV Dataset*. Hugging Face
+
+    Link: <https://huggingface.co/datasets/mattrichmo/Netflix-Imdb-Engagement-Match-TV>.
+
+2.  **data.table Package** : Tyson Barrett and Matt Dowle and Arun Srinivasan and Jan Gorecki and Michael Chirico and Toby Hocking and Benjamin Schwendinger. Extension of data.frame
+
+    Link : <https://CRAN.R-project.org/package=data.table>
+
+3.  **Student Alcohol Consumption** data set(student_mat.csv) : scikit-learn (2022)
+
+    Link : <https://huggingface.co/datasets/scikit-learn/student-alcohol-consumption/tree/main>
